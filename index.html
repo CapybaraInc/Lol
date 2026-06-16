@@ -3,13 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, maximum-scale=1.0, touch-action: manipulation">
-    <title>🪑 СтулоМания - Мобильная версия</title>
+    <title>🪑 СтулоМания</title>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
         body { 
             overflow: hidden; 
             background: #0a0a1a;
-            font-family: 'Arial', sans-serif;
+            font-family: Arial, sans-serif;
             touch-action: none;
             position: fixed;
             width: 100%;
@@ -26,21 +26,18 @@
             text-align: center;
             pointer-events: none;
         }
-
         #phase-text {
-            font-size: clamp(20px, 5vw, 36px);
+            font-size: 22px;
             font-weight: bold;
             color: #FFD700;
-            text-shadow: 0 0 20px rgba(255,215,0,0.8), 0 0 40px rgba(255,100,0,0.6);
+            text-shadow: 0 0 20px rgba(255,215,0,0.8);
         }
-
         #timer {
-            font-size: clamp(36px, 8vw, 56px);
+            font-size: 40px;
             font-weight: bold;
             color: #fff;
             text-shadow: 0 0 30px rgba(255,255,255,0.9);
         }
-
         #info-bottom {
             position: absolute;
             bottom: 20px;
@@ -52,20 +49,9 @@
             background: rgba(0,0,0,0.5);
             border-radius: 15px;
             padding: 10px 20px;
-        }
-
-        #players-left, #chairs-left {
-            font-size: 16px;
             color: #fff;
-            text-shadow: 0 0 8px rgba(255,255,255,0.5);
-        }
-
-        #status {
             font-size: 14px;
-            color: #FFD700;
-            margin-top: 3px;
         }
-
         #wins-counter {
             position: absolute;
             top: 15px;
@@ -75,7 +61,6 @@
             color: #FFD700;
             font-size: 16px;
             font-weight: bold;
-            text-shadow: 0 0 10px rgba(255,215,0,0.8);
         }
 
         #joystick-zone {
@@ -89,7 +74,6 @@
             background: rgba(255,255,255,0.08);
             border: 3px solid rgba(255,255,255,0.2);
         }
-
         #joystick-stick {
             position: absolute;
             width: 60px;
@@ -100,9 +84,7 @@
             left: 50%;
             transform: translate(-50%, -50%);
             box-shadow: 0 0 20px rgba(255,200,0,0.5);
-            transition: none;
         }
-
         #sit-button {
             position: absolute;
             bottom: 60px;
@@ -119,78 +101,80 @@
             font-size: 18px;
             font-weight: bold;
             color: #5D3A00;
-            text-shadow: 0 1px 2px rgba(255,255,255,0.5);
             box-shadow: 0 0 30px rgba(255,200,0,0.7);
-            transition: transform 0.1s;
             cursor: pointer;
         }
-
-        #sit-button:active {
-            transform: scale(0.9);
-            box-shadow: 0 0 50px rgba(255,200,0,1);
-        }
-
         #sit-button.pulse {
-            animation: sitPulse 0.5s ease-in-out infinite;
+            animation: pulse 0.5s ease-in-out infinite;
         }
-
-        @keyframes sitPulse {
+        @keyframes pulse {
             0%, 100% { box-shadow: 0 0 30px rgba(255,200,0,0.7); }
             50% { box-shadow: 0 0 60px rgba(255,255,0,1), 0 0 100px rgba(255,150,0,0.8); }
         }
 
-        #mobile-warning {
-            display: none;
+        #loading {
             position: absolute;
             top: 50%;
             left: 50%;
             transform: translate(-50%, -50%);
-            z-index: 30;
-            background: rgba(0,0,0,0.9);
-            color: white;
-            padding: 20px;
-            border-radius: 15px;
-            text-align: center;
-            font-size: 18px;
+            color: #FFD700;
+            font-size: 24px;
+            z-index: 100;
+            font-weight: bold;
         }
     </style>
 </head>
 <body>
+    <div id="loading">🪑 Загрузка...</div>
     <div id="ui-top">
         <div id="phase-text">🎪 СТУЛОМАНИЯ</div>
         <div id="timer">3</div>
     </div>
     <div id="info-bottom">
-        <div id="players-left">👥 Игроков: 10</div>
-        <div id="chairs-left">🪑 Стульев: 9</div>
-        <div id="status">Фаза: Загрузка...</div>
+        <div id="players-left">👥 10</div>
+        <div id="chairs-left">🪑 9</div>
+        <div id="status">Загрузка...</div>
     </div>
     <div id="wins-counter">🏆 0</div>
-
     <div id="joystick-zone">
         <div id="joystick-stick"></div>
     </div>
     <div id="sit-button">🪑<br>СЕСТЬ</div>
 
-    <script type="importmap">
-        {
-            "imports": {
-                "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
-                "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
-            }
-        }
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js">
     </script>
 
-    <script type="module">
-        import * as THREE from 'three';
+    <script>
+        // Ждём загрузки Three.js
+        window.addEventListener('load', function() {
+            document.getElementById('loading').style.display = 'none';
+            init();
+        });
 
         // ============================================
-        // КОНФИГ
+        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
         // ============================================
+        let scene, camera, renderer;
+        let playerData;
+        let bots = [];
+        let chairs = [];
+        let activePlayers = [];
+        let currentPhase = 'COUNTDOWN';
+        let phaseTimeLeft = 3;
+        let gameActive = true;
+        let currentChaosMode = null;
+        let chaosTimer = 0;
+        let playerSeated = false;
+        let wins = 0;
+        let particles = [];
+        let joystickVector = { x: 0, y: 0 };
+        let joystickTouchId = null;
+        let audioCtx = null;
+
         const CONFIG = {
-            totalBots: 9,
-            chairsCount: 9,
-            arenaRadius: 15,
+            totalBots: 7,
+            chairsCount: 7,
+            arenaRadius: 14,
             phases: {
                 COUNTDOWN: { name: 'Обратный отсчёт', duration: 3, color: '#4488ff' },
                 RUN: { name: '🏃 БЕГ!', duration: 12, color: '#44ff44' },
@@ -201,55 +185,56 @@
         };
 
         // ============================================
-        // ГЛОБАЛЬНЫЕ ПЕРЕМЕННЫЕ
+        // ИНИЦИАЛИЗАЦИЯ (после загрузки Three.js)
         // ============================================
-        let scene, camera, renderer;
-        let player, playerData;
-        let bots = [];
-        let chairs = [];
-        let activePlayers = [];
-        let currentPhase = 'COUNTDOWN';
-        let phaseTimeLeft = CONFIG.phases.COUNTDOWN.duration;
-        let gameActive = true;
-        let currentChaosMode = null;
-        let chaosTimer = 0;
-        let playerSeated = false;
-        let wins = 0;
+        function init() {
+            try {
+                setupThreeJS();
+                createArena();
+                createPlayer();
+                for (let i = 0; i < CONFIG.totalBots; i++) createBot(i);
+                for (let i = 0; i < CONFIG.chairsCount; i++) createChair(i);
+                setupJoystick();
+                
+                wins = parseInt(localStorage.getItem('stulomania_wins') || '0');
+                document.getElementById('wins-counter').textContent = '🏆 ' + wins;
+                
+                currentPhase = 'COUNTDOWN';
+                phaseTimeLeft = CONFIG.phases.COUNTDOWN.duration;
+                updateUI();
+                
+                lastTime = performance.now();
+                gameLoop(lastTime);
+                
+                console.log('✅ СтулоМания готова!');
+            } catch(e) {
+                console.error('Ошибка инициализации:', e);
+                document.getElementById('loading').textContent = 'Ошибка: ' + e.message;
+            }
+        }
 
-        // Джойстик
-        let joystickActive = false;
-        let joystickVector = { x: 0, y: 0 };
-        let joystickTouchId = null;
-
-        // Частицы
-        let particles = [];
-
-        // ============================================
-        // ИНИЦИАЛИЗАЦИЯ
-        // ============================================
-        function initThreeJS() {
+        function setupThreeJS() {
             scene = new THREE.Scene();
             scene.background = new THREE.Color(0x0a0a2e);
-            scene.fog = new THREE.Fog(0x0a0a2e, 20, 55);
 
             camera = new THREE.PerspectiveCamera(60, window.innerWidth / window.innerHeight, 0.5, 80);
             camera.position.set(0, 20, 16);
             camera.lookAt(0, 0, 0);
 
-            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer = new THREE.WebGLRenderer({ antialias: true });
             renderer.setSize(window.innerWidth, window.innerHeight);
             renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
             renderer.shadowMap.enabled = true;
             renderer.shadowMap.type = THREE.PCFSoftShadowMap;
             document.body.appendChild(renderer.domElement);
 
-            // Освещение
-            scene.add(new THREE.AmbientLight(0x223355, 2.5));
+            scene.add(new THREE.AmbientLight(0x334466, 2));
             
             const sun = new THREE.DirectionalLight(0xffffff, 3);
             sun.position.set(15, 25, 10);
             sun.castShadow = true;
-            sun.shadow.mapSize.set(2048, 2048);
+            sun.shadow.mapSize.width = 2048;
+            sun.shadow.mapSize.height = 2048;
             sun.shadow.camera.near = 0.5;
             sun.shadow.camera.far = 80;
             sun.shadow.camera.left = -25;
@@ -258,684 +243,375 @@
             sun.shadow.camera.bottom = -25;
             scene.add(sun);
 
-            // Прожекторы
-            for (let i = 0; i < 6; i++) {
-                const angle = (i / 6) * Math.PI * 2;
-                const spot = new THREE.SpotLight(0xff6600, 15, 35, Math.PI / 5, 0.3, 0.5);
-                spot.position.set(Math.cos(angle) * 18, 12, Math.sin(angle) * 18);
-                spot.target.position.set(0, 0, 0);
-                scene.add(spot);
-                scene.add(spot.target);
-            }
-
             // Звёзды
             const starsGeo = new THREE.BufferGeometry();
             const starsPos = new Float32Array(1000 * 3);
             for (let i = 0; i < 1000 * 3; i += 3) {
                 starsPos[i] = (Math.random() - 0.5) * 70;
-                starsPos[i + 1] = (Math.random() - 0.5) * 50 + 10;
+                starsPos[i + 1] = Math.random() * 40 + 5;
                 starsPos[i + 2] = (Math.random() - 0.5) * 70;
             }
             starsGeo.setAttribute('position', new THREE.BufferAttribute(starsPos, 3));
             scene.add(new THREE.Points(starsGeo, new THREE.PointsMaterial({ 
-                color: 0xffffff, size: 0.12, transparent: true, opacity: 0.8 
+                color: 0xffffff, size: 0.1 
             })));
-
-            createArena();
         }
 
         function createArena() {
             // Пол
-            const floorGeo = new THREE.CylinderGeometry(CONFIG.arenaRadius, CONFIG.arenaRadius, 0.4, 64);
-            const floorMat = new THREE.MeshStandardMaterial({ color: 0x2a1a4a, roughness: 0.3, metalness: 0.5 });
-            const floor = new THREE.Mesh(floorGeo, floorMat);
-            floor.position.y = -0.2;
+            const floorGeo = new THREE.CylinderGeometry(CONFIG.arenaRadius, CONFIG.arenaRadius, 0.3, 64);
+            const floor = new THREE.Mesh(floorGeo, new THREE.MeshStandardMaterial({ 
+                color: 0x2a1a4a, roughness: 0.3, metalness: 0.5 
+            }));
+            floor.position.y = -0.15;
             floor.receiveShadow = true;
-            floor.name = 'arenaFloor';
             scene.add(floor);
 
-            // Светящееся кольцо
-            const ringGeo = new THREE.TorusGeometry(CONFIG.arenaRadius, 0.35, 32, 128);
-            const ringMat = new THREE.MeshStandardMaterial({ 
-                color: 0x8844ff, roughness: 0.2, metalness: 0.8, emissive: 0x442288, emissiveIntensity: 2 
-            });
-            const ring = new THREE.Mesh(ringGeo, ringMat);
+            // Кольцо
+            const ringGeo = new THREE.TorusGeometry(CONFIG.arenaRadius, 0.3, 32, 128);
+            const ring = new THREE.Mesh(ringGeo, new THREE.MeshStandardMaterial({ 
+                color: 0x8844ff, roughness: 0.2, emissive: 0x442288, emissiveIntensity: 1.5 
+            }));
             ring.rotation.x = Math.PI / 2;
             ring.position.y = 0.1;
-            ring.receiveShadow = true;
-            ring.name = 'arenaRing';
             scene.add(ring);
 
-            // Столбы с шарами
-            for (let i = 0; i < 12; i++) {
-                const angle = (i / 12) * Math.PI * 2;
-                const x = Math.cos(angle) * (CONFIG.arenaRadius + 1.5);
-                const z = Math.sin(angle) * (CONFIG.arenaRadius + 1.5);
+            // Столбы
+            for (let i = 0; i < 10; i++) {
+                const angle = (i / 10) * Math.PI * 2;
+                const x = Math.cos(angle) * (CONFIG.arenaRadius + 1.2);
+                const z = Math.sin(angle) * (CONFIG.arenaRadius + 1.2);
                 
-                const poleGeo = new THREE.CylinderGeometry(0.2, 0.2, 3.5, 16);
-                const poleMat = new THREE.MeshStandardMaterial({ 
-                    color: 0xffaa00, emissive: 0xff6600, emissiveIntensity: 1.5 
-                });
-                const pole = new THREE.Mesh(poleGeo, poleMat);
-                pole.position.set(x, 1.75, z);
-                pole.castShadow = true;
+                const pole = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.15, 0.15, 3, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xffaa00, emissive: 0xff6600, emissiveIntensity: 1.2 })
+                );
+                pole.position.set(x, 1.5, z);
                 scene.add(pole);
 
-                const ballGeo = new THREE.SphereGeometry(0.45, 16, 16);
-                const ballMat = new THREE.MeshStandardMaterial({ 
-                    color: 0xffff00, emissive: 0xffaa00, emissiveIntensity: 3 
-                });
-                const ball = new THREE.Mesh(ballGeo, ballMat);
-                ball.position.set(x, 3.7, z);
-                ball.name = 'glowBall';
+                const ball = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.35, 8, 8),
+                    new THREE.MeshStandardMaterial({ color: 0xffff00, emissive: 0xffaa00, emissiveIntensity: 2 })
+                );
+                ball.position.set(x, 3.2, z);
                 scene.add(ball);
             }
         }
 
-        // ============================================
-        // ПЕРСОНАЖИ
-        // ============================================
-        function createCharacterModel(bodyColor, hatColor, isSpecial = false) {
+        function createCharacterModel(bodyColor, hatColor) {
             const group = new THREE.Group();
             
-            const bodyGeo = new THREE.CylinderGeometry(0.35, 0.45, 1.4, 16);
-            const bodyMat = new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.4 });
-            const body = new THREE.Mesh(bodyGeo, bodyMat);
-            body.position.y = 0.7;
+            const body = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.4, 1.3, 12),
+                new THREE.MeshStandardMaterial({ color: bodyColor, roughness: 0.4 })
+            );
+            body.position.y = 0.65;
             body.castShadow = true;
             group.add(body);
 
-            const headGeo = new THREE.SphereGeometry(0.38, 16, 16);
-            const headMat = new THREE.MeshStandardMaterial({ color: 0xffccaa, roughness: 0.3 });
-            const head = new THREE.Mesh(headGeo, headMat);
-            head.position.y = 1.7;
+            const head = new THREE.Mesh(
+                new THREE.SphereGeometry(0.35, 12, 12),
+                new THREE.MeshStandardMaterial({ color: 0xffccaa })
+            );
+            head.position.y = 1.55;
             head.castShadow = true;
             group.add(head);
 
-            const hatGeo = new THREE.CylinderGeometry(0.33, 0.38, 0.35, 16);
-            const hatMat = new THREE.MeshStandardMaterial({ color: hatColor, roughness: 0.3 });
-            const hat = new THREE.Mesh(hatGeo, hatMat);
-            hat.position.y = 2.0;
-            hat.castShadow = true;
+            const hat = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.3, 0.35, 0.3, 12),
+                new THREE.MeshStandardMaterial({ color: hatColor })
+            );
+            hat.position.y = 1.85;
             group.add(hat);
-
-            const brimGeo = new THREE.CylinderGeometry(0.5, 0.5, 0.07, 16);
-            const brim = new THREE.Mesh(brimGeo, hatMat);
-            brim.position.y = 1.82;
-            brim.castShadow = true;
-            group.add(brim);
-
-            if (isSpecial) {
-                const crownGeo = new THREE.RingGeometry(0.25, 0.4, 16);
-                const crownMat = new THREE.MeshStandardMaterial({ 
-                    color: 0xffd700, emissive: 0xffaa00, emissiveIntensity: 2 
-                });
-                const crown = new THREE.Mesh(crownGeo, crownMat);
-                crown.position.y = 2.2;
-                crown.rotation.x = Math.PI / 2;
-                group.add(crown);
-            }
 
             return group;
         }
 
         function createPlayer() {
-            const model = createCharacterModel(0x44ff44, 0xff2222, true);
+            const model = createCharacterModel(0x44ff44, 0xff2222);
             model.position.set(0, 0, 0);
             scene.add(model);
             
             playerData = {
                 mesh: model,
-                speed: 7.5,
+                speed: 7,
                 seated: false,
                 alive: true,
-                velocity: new THREE.Vector3(),
             };
             activePlayers.push(playerData);
         }
 
         function createBot(index) {
-            const colors = [0xff4444, 0x4488ff, 0xff8800, 0xff44ff, 0x44ffff, 0xffff44, 0xff6688, 0x8844ff, 0x44ff88];
-            const model = createCharacterModel(colors[index], colors[(index + 3) % colors.length]);
+            const colors = [0xff4444, 0x4488ff, 0xff8800, 0xff44ff, 0x44ffff, 0xffff44, 0x8844ff];
+            const model = createCharacterModel(colors[index % colors.length], colors[(index + 2) % colors.length]);
             
             const angle = Math.random() * Math.PI * 2;
-            const radius = Math.random() * (CONFIG.arenaRadius - 2.5);
+            const radius = Math.random() * (CONFIG.arenaRadius - 3);
             model.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
             scene.add(model);
 
-            const bot = {
+            bots.push({
                 mesh: model,
-                speed: 4.5 + Math.random() * 3.5,
+                speed: 4 + Math.random() * 3,
                 seated: false,
                 alive: true,
                 targetAngle: Math.random() * Math.PI * 2,
                 changeTimer: Math.random() * 2,
                 wanderTimer: 0,
-            };
-            bots.push(bot);
-            activePlayers.push(bot);
+            });
+            activePlayers.push(bots[bots.length - 1]);
         }
 
-        // ============================================
-        // СТУЛЬЯ
-        // ============================================
         function createChair(index) {
             const group = new THREE.Group();
-            
-            const seatGeo = new THREE.BoxGeometry(1.1, 0.2, 1.1);
             const isLucky = Math.random() < 0.15;
             const isMimic = !isLucky && Math.random() < 0.2;
             
             const seatColor = isLucky ? 0xffd700 : (isMimic ? 0x9933ff : 0xff6644);
-            const seatMat = new THREE.MeshStandardMaterial({ 
-                color: seatColor, roughness: 0.3, metalness: 0.2,
-                emissive: isLucky ? 0xffaa00 : 0x000000,
-                emissiveIntensity: isLucky ? 1.5 : 0,
-            });
-            const seat = new THREE.Mesh(seatGeo, seatMat);
-            seat.position.y = 0.7;
+            const seat = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 0.18, 1),
+                new THREE.MeshStandardMaterial({ 
+                    color: seatColor,
+                    emissive: isLucky ? 0xffaa00 : 0x000000,
+                    emissiveIntensity: isLucky ? 1.2 : 0,
+                })
+            );
+            seat.position.y = 0.65;
             seat.castShadow = true;
             seat.receiveShadow = true;
             group.add(seat);
 
-            const backGeo = new THREE.BoxGeometry(1.1, 0.9, 0.2);
-            const backMat = new THREE.MeshStandardMaterial({ 
-                color: isLucky ? 0xffcc00 : 0xff5533, roughness: 0.3 
-            });
-            const back = new THREE.Mesh(backGeo, backMat);
-            back.position.set(0, 1.15, -0.45);
+            const back = new THREE.Mesh(
+                new THREE.BoxGeometry(1, 0.8, 0.18),
+                new THREE.MeshStandardMaterial({ color: isLucky ? 0xffcc00 : 0xff5533 })
+            );
+            back.position.set(0, 1.05, -0.4);
             back.castShadow = true;
             group.add(back);
 
             // Ножки
             for (let i = 0; i < 4; i++) {
-                const legGeo = new THREE.CylinderGeometry(0.07, 0.07, 0.65, 8);
-                const leg = new THREE.Mesh(legGeo, new THREE.MeshStandardMaterial({ color: 0x8B4513 }));
-                leg.position.set((i % 2 === 0 ? 0.38 : -0.38), 0.32, (i < 2 ? 0.38 : -0.38));
+                const leg = new THREE.Mesh(
+                    new THREE.CylinderGeometry(0.06, 0.06, 0.6, 6),
+                    new THREE.MeshStandardMaterial({ color: 0x8B4513 })
+                );
+                leg.position.set((i % 2 === 0 ? 0.35 : -0.35), 0.3, (i < 2 ? 0.35 : -0.35));
                 leg.castShadow = true;
                 group.add(leg);
             }
 
             // Глаза
             for (let s = -1; s <= 1; s += 2) {
-                const eyeGeo = new THREE.SphereGeometry(0.13, 8, 8);
-                const eye = new THREE.Mesh(eyeGeo, new THREE.MeshStandardMaterial({ 
-                    color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 
-                }));
-                eye.position.set(s * 0.22, 1.45, -0.35);
+                const eye = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.11, 6, 6),
+                    new THREE.MeshStandardMaterial({ color: 0xffffff, emissive: 0xffffff, emissiveIntensity: 0.5 })
+                );
+                eye.position.set(s * 0.2, 1.3, -0.3);
                 group.add(eye);
-
-                const pupilGeo = new THREE.SphereGeometry(0.07, 8, 8);
-                const pupil = new THREE.Mesh(pupilGeo, new THREE.MeshStandardMaterial({ color: 0x000000 }));
-                pupil.position.set(s * 0.22, 1.45, -0.22);
-                group.add(pupil);
             }
 
             const angle = (index / CONFIG.chairsCount) * Math.PI * 2;
             const radius = CONFIG.arenaRadius * 0.6;
-            const x = Math.cos(angle) * radius;
-            const z = Math.sin(angle) * radius;
-            group.position.set(x, 0, z);
+            group.position.set(Math.cos(angle) * radius, 0, Math.sin(angle) * radius);
             group.rotation.y = angle + Math.PI;
-
             scene.add(group);
             
             chairs.push({
                 mesh: group,
-                originalPosition: new THREE.Vector3(x, 0, z),
+                originalPosition: new THREE.Vector3(group.position.x, 0, group.position.z),
                 frozen: false,
                 occupied: false,
                 isMimic,
                 isLucky,
-                index,
             });
         }
 
         // ============================================
         // ЧАСТИЦЫ
         // ============================================
-        function spawnParticles(position, color, count = 30) {
+        function spawnParticles(pos, color, count) {
             for (let i = 0; i < count; i++) {
-                const geo = new THREE.SphereGeometry(0.08, 4, 4);
-                const mat = new THREE.MeshBasicMaterial({ color });
-                const particle = new THREE.Mesh(geo, mat);
-                particle.position.copy(position);
-                particle.position.y += 1;
-                particle.userData = {
-                    velocity: new THREE.Vector3(
-                        (Math.random() - 0.5) * 6,
-                        Math.random() * 8 + 3,
-                        (Math.random() - 0.5) * 6
-                    ),
-                    life: 1.5 + Math.random(),
+                const p = new THREE.Mesh(
+                    new THREE.SphereGeometry(0.06, 4, 4),
+                    new THREE.MeshBasicMaterial({ color })
+                );
+                p.position.copy(pos);
+                p.position.y += 1;
+                p.userData = {
+                    vx: (Math.random() - 0.5) * 5,
+                    vy: Math.random() * 7 + 2,
+                    vz: (Math.random() - 0.5) * 5,
+                    life: 1.2 + Math.random(),
                 };
-                scene.add(particle);
-                particles.push(particle);
+                scene.add(p);
+                particles.push(p);
             }
         }
 
-        function updateParticles(deltaTime) {
+        function updateParticles(dt) {
             for (let i = particles.length - 1; i >= 0; i--) {
                 const p = particles[i];
-                p.userData.life -= deltaTime;
+                p.userData.life -= dt;
                 if (p.userData.life <= 0) {
                     scene.remove(p);
-                    p.geometry.dispose();
-                    p.material.dispose();
                     particles.splice(i, 1);
                 } else {
-                    p.userData.velocity.y -= 9.8 * deltaTime;
-                    p.position.x += p.userData.velocity.x * deltaTime;
-                    p.position.y += p.userData.velocity.y * deltaTime;
-                    p.position.z += p.userData.velocity.z * deltaTime;
-                    p.material.opacity = p.userData.life / 2;
-                    p.material.transparent = true;
+                    p.userData.vy -= 9.8 * dt;
+                    p.position.x += p.userData.vx * dt;
+                    p.position.y += p.userData.vy * dt;
+                    p.position.z += p.userData.vz * dt;
                 }
             }
         }
 
         // ============================================
-        // ЗВУК (простой синтез)
+        // ЗВУК
         // ============================================
-        let audioCtx = null;
-        
         function initAudio() {
             if (!audioCtx) {
                 audioCtx = new (window.AudioContext || window.webkitAudioContext)();
             }
         }
 
-        function playBeep(freq, duration, type = 'square') {
+        function playBeep(freq, dur) {
             if (!audioCtx) return;
-            const osc = audioCtx.createOscillator();
-            const gain = audioCtx.createGain();
-            osc.type = type;
-            osc.frequency.value = freq;
-            gain.gain.setValueAtTime(0.1, audioCtx.currentTime);
-            gain.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + duration);
-            osc.connect(gain);
-            gain.connect(audioCtx.destination);
-            osc.start();
-            osc.stop(audioCtx.currentTime + duration);
+            const o = audioCtx.createOscillator();
+            const g = audioCtx.createGain();
+            o.type = 'square';
+            o.frequency.value = freq;
+            g.gain.setValueAtTime(0.08, audioCtx.currentTime);
+            g.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + dur);
+            o.connect(g);
+            g.connect(audioCtx.destination);
+            o.start();
+            o.stop(audioCtx.currentTime + dur);
         }
 
         function playWinSound() {
-            if (!audioCtx) return;
-            [523, 659, 784, 1047].forEach((freq, i) => {
-                setTimeout(() => playBeep(freq, 0.3, 'triangle'), i * 150);
-            });
-        }
-
-        function playSitSound() {
-            playBeep(200, 0.1, 'square');
-        }
-
-        function playMimicSound() {
-            playBeep(100, 0.5, 'sawtooth');
+            [523, 659, 784, 1047].forEach((f, i) => setTimeout(() => playBeep(f, 0.3), i * 150));
         }
 
         // ============================================
-        // ИГРОВАЯ ЛОГИКА
+        // ЛОГИКА
         // ============================================
-        function startGame() {
-            currentPhase = 'COUNTDOWN';
-            phaseTimeLeft = CONFIG.phases.COUNTDOWN.duration;
-            updateUI();
-        }
-
         function nextPhase() {
             const phases = ['COUNTDOWN', 'RUN', 'CHAOS', 'FREEZE'];
             const idx = phases.indexOf(currentPhase);
             currentPhase = phases[(idx + 1) % phases.length];
             phaseTimeLeft = CONFIG.phases[currentPhase].duration;
 
-            if (currentPhase === 'CHAOS') startChaosMode();
-            if (currentPhase === 'FREEZE') freezeAllChairs();
-            if (currentPhase === 'COUNTDOWN') resetForNewRound();
-            
+            if (currentPhase === 'CHAOS') {
+                currentChaosMode = CONFIG.chaosModes[Math.floor(Math.random() * CONFIG.chaosModes.length)];
+                chaosTimer = 0;
+                chairs.forEach(c => c.frozen = false);
+            }
+            if (currentPhase === 'FREEZE') {
+                chairs.forEach(c => c.frozen = true);
+                document.getElementById('sit-button').classList.add('pulse');
+            }
+            if (currentPhase === 'COUNTDOWN') {
+                document.getElementById('sit-button').classList.remove('pulse');
+                const alive = activePlayers.filter(p => p.alive);
+                activePlayers = alive;
+                bots = bots.filter(b => activePlayers.includes(b));
+                chairs.forEach(c => { c.frozen = false; c.occupied = false; });
+                activePlayers.forEach(p => p.seated = false);
+                playerSeated = false;
+            }
             updateUI();
-        }
-
-        function startChaosMode() {
-            currentChaosMode = CONFIG.chaosModes[Math.floor(Math.random() * CONFIG.chaosModes.length)];
-            chaosTimer = 0;
-            chairs.forEach(c => { c.frozen = false; });
-        }
-
-        function freezeAllChairs() {
-            chairs.forEach(c => { c.frozen = true; });
-            document.getElementById('sit-button').classList.add('pulse');
-        }
-
-        function resetForNewRound() {
-            document.getElementById('sit-button').classList.remove('pulse');
-            
-            const alive = activePlayers.filter(p => p.alive);
-            const dead = activePlayers.filter(p => !p.alive);
-            
-            dead.forEach(p => { if (p.mesh) p.mesh.position.y = -5; });
-
-            activePlayers = alive;
-            bots = bots.filter(b => activePlayers.includes(b));
-
-            chairs.forEach(c => { c.frozen = false; c.occupied = false; });
-            activePlayers.forEach(p => { p.seated = false; });
-            playerSeated = false;
-
-            updateUI();
-        }
-
-        function checkSeating() {
-            document.getElementById('sit-button').classList.remove('pulse');
-            
-            if (!playerData.alive) return;
-
-            const seatedPlayers = activePlayers.filter(p => p.seated);
-            const unseated = activePlayers.filter(p => !p.seated && p.alive);
-
-            if (!playerData.seated && playerData.alive) {
-                eliminatePlayer(playerData);
-                return;
-            }
-
-            unseated.forEach(p => {
-                if (p !== playerData) eliminatePlayer(p);
-            });
-
-            const remaining = activePlayers.filter(p => p.alive);
-            if (remaining.length <= 1 && playerData.alive) {
-                victory();
-            }
-        }
-
-        function eliminatePlayer(p) {
-            p.alive = false;
-            if (p.mesh) {
-                p.mesh.position.y = -3;
-                spawnParticles(p.mesh.position.clone(), 0xff4444, 20);
-                playBeep(80, 0.3, 'sawtooth');
-            }
-        }
-
-        function victory() {
-            wins++;
-            localStorage.setItem('stulomania_wins', wins);
-            document.getElementById('wins-counter').textContent = '🏆 ' + wins;
-            document.getElementById('phase-text').textContent = '🏆 ПОБЕДА!';
-            document.getElementById('timer').textContent = '🎉';
-            document.getElementById('status').textContent = 'Вы лучший!';
-            
-            spawnParticles(playerData.mesh.position.clone(), 0xffd700, 60);
-            spawnParticles(playerData.mesh.position.clone(), 0xff4444, 40);
-            spawnParticles(playerData.mesh.position.clone(), 0x44ff44, 40);
-            playWinSound();
-            
-            if (playerData.mesh) {
-                playerData.mesh.position.y = 2.5;
-            }
-
-            setTimeout(() => {
-                resetGame();
-            }, 4000);
-        }
-
-        function resetGame() {
-            // Удаляем старых
-            const allMeshes = scene.children.filter(c => 
-                c.userData && (c.userData.isPlayer || c.userData.isChair)
-            );
-            allMeshes.forEach(m => scene.remove(m));
-
-            activePlayers = [];
-            bots = [];
-            chairs.forEach(c => {
-                if (c.mesh) scene.remove(c.mesh);
-            });
-            chairs = [];
-            particles.forEach(p => {
-                scene.remove(p);
-                p.geometry?.dispose();
-                p.material?.dispose();
-            });
-            particles = [];
-            playerSeated = false;
-
-            // Создаём новых
-            createPlayer();
-            for (let i = 0; i < CONFIG.totalBots; i++) createBot(i);
-            for (let i = 0; i < CONFIG.chairsCount; i++) createChair(i);
-
-            startGame();
-            document.getElementById('phase-text').textContent = '🎪 СТУЛОМАНИЯ';
-            document.getElementById('timer').textContent = '3';
         }
 
         function sitOnChair(p, chair) {
             if (chair.occupied || !chair.frozen) return;
             
             if (chair.isMimic) {
-                // Обманка!
                 if (p.mesh) {
-                    p.mesh.position.y += 5;
-                    setTimeout(() => {
-                        if (p.mesh && p.alive) p.mesh.position.y = 0;
-                    }, 600);
-                    spawnParticles(p.mesh.position.clone(), 0x9933ff, 25);
+                    p.mesh.position.y += 4;
+                    setTimeout(() => { if (p.mesh && p.alive) p.mesh.position.y = 0; }, 500);
+                    spawnParticles(p.mesh.position.clone(), 0x9933ff, 20);
                 }
-                playMimicSound();
-                document.getElementById('status').textContent = '😂 СТУЛ-ОБМАНКА!';
+                playBeep(100, 0.4);
                 return;
             }
 
             p.seated = true;
             chair.occupied = true;
-            
             if (p.mesh) {
                 p.mesh.position.copy(chair.mesh.position);
-                p.mesh.position.y += 0.8;
+                p.mesh.position.y += 0.75;
             }
-
             if (p === playerData) {
                 playerSeated = true;
-                document.getElementById('status').textContent = 
-                    chair.isLucky ? '✨ ВОЛШЕБНЫЙ СТУЛ! +БОНУС' : '✅ Вы сели!';
                 if (chair.isLucky) {
-                    spawnParticles(chair.mesh.position.clone(), 0xffd700, 40);
+                    spawnParticles(chair.mesh.position.clone(), 0xffd700, 30);
                     wins++;
                     localStorage.setItem('stulomania_wins', wins);
                     document.getElementById('wins-counter').textContent = '🏆 ' + wins;
                 }
             }
-            
-            playSitSound();
+            playBeep(200, 0.1);
         }
 
-        // ============================================
-        // ХАОС
-        // ============================================
-        function updateChaos(deltaTime) {
-            chaosTimer += deltaTime;
+        function checkSeating() {
+            document.getElementById('sit-button').classList.remove('pulse');
+            if (!playerData.alive) return;
 
-            chairs.forEach((chair, i) => {
-                if (!chair.mesh || chair.frozen || chair.occupied) return;
+            if (!playerData.seated && playerData.alive) {
+                playerData.alive = false;
+                playerData.mesh.position.y = -3;
+                return;
+            }
 
-                switch (currentChaosMode) {
-                    case 'dance':
-                        chair.mesh.position.y = chair.originalPosition.y + Math.sin(chaosTimer * 14 + i) * 1.2;
-                        chair.mesh.rotation.y += deltaTime * (5 + Math.sin(i) * 3);
-                        chair.mesh.rotation.x = Math.sin(chaosTimer * 9 + i) * 0.25;
-                        break;
-
-                    case 'chase':
-                        const nearest = findNearestPlayer(chair.mesh.position);
-                        if (nearest) {
-                            const dir = new THREE.Vector3().subVectors(nearest.position, chair.mesh.position).normalize();
-                            chair.mesh.position.x += dir.x * deltaTime * 5.5;
-                            chair.mesh.position.z += dir.z * deltaTime * 5.5;
-                            chair.mesh.lookAt(chair.mesh.position.x + dir.x, chair.mesh.position.y, chair.mesh.position.z + dir.z);
-                        }
-                        break;
-
-                    case 'gravity':
-                        const dist = Math.sqrt(chair.mesh.position.x ** 2 + chair.mesh.position.z ** 2);
-                        const force = (5 - dist) * 0.25;
-                        const toCenter = new THREE.Vector3(-chair.mesh.position.x, 0, -chair.mesh.position.z).normalize();
-                        const sign = Math.sin(chaosTimer * 2.5) > 0 ? 1 : -1;
-                        chair.mesh.position.x += toCenter.x * force * sign * deltaTime * 8;
-                        chair.mesh.position.z += toCenter.z * force * sign * deltaTime * 8;
-                        chair.mesh.rotation.y += deltaTime * 3;
-                        break;
-
-                    case 'swap':
-                        if (Math.floor(chaosTimer * 0.6) % 2 === 0 && i % 2 === 0) {
-                            const next = chairs[(i + 1) % chairs.length];
-                            if (next && next.mesh && !next.occupied) {
-                                const tmp = chair.mesh.position.clone();
-                                chair.mesh.position.copy(next.mesh.position);
-                                next.mesh.position.copy(tmp);
-                            }
-                        }
-                        break;
-
-                    case 'invisible':
-                        const vis = Math.sin(chaosTimer * 12 + i) > 0 ? 1 : 0.1;
-                        chair.mesh.children.forEach(child => {
-                            if (child.material) {
-                                child.material.transparent = true;
-                                child.material.opacity = vis;
-                            }
-                        });
-                        chair.mesh.rotation.y += deltaTime * 2;
-                        break;
-                }
-
-                // Ограничение
-                const d = Math.sqrt(chair.mesh.position.x ** 2 + chair.mesh.position.z ** 2);
-                if (d > CONFIG.arenaRadius - 1.2) {
-                    const n = new THREE.Vector3(-chair.mesh.position.x, 0, -chair.mesh.position.z).normalize();
-                    chair.mesh.position.x += n.x * 0.4;
-                    chair.mesh.position.z += n.z * 0.4;
-                }
-            });
-        }
-
-        function findNearestPlayer(pos) {
-            let nearest = null, minDist = Infinity;
             activePlayers.forEach(p => {
-                if (!p.alive || !p.mesh || p.seated) return;
-                const d = pos.distanceTo(p.mesh.position);
-                if (d < minDist) { minDist = d; nearest = p.mesh; }
+                if (!p.seated && p.alive && p !== playerData) {
+                    p.alive = false;
+                    p.mesh.position.y = -3;
+                }
             });
-            return nearest;
-        }
 
-        function findNearestChair(pos) {
-            let nearest = null, minDist = Infinity;
-            chairs.forEach(c => {
-                if (!c.mesh || c.occupied) return;
-                const d = pos.distanceTo(c.mesh.position);
-                if (d < minDist) { minDist = d; nearest = c; }
-            });
-            return nearest;
-        }
-
-        // ============================================
-        // ОБНОВЛЕНИЕ
-        // ============================================
-        function updatePlayer(deltaTime) {
-            if (!playerData.alive || playerData.seated) return;
-
-            const moveX = joystickVector.x;
-            const moveZ = -joystickVector.y;
-
-            if (Math.abs(moveX) > 0.1 || Math.abs(moveZ) > 0.1) {
-                const camDir = new THREE.Vector3();
-                camera.getWorldDirection(camDir);
-                camDir.y = 0;
-                camDir.normalize();
-                const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), camDir).normalize();
-                
-                const movement = new THREE.Vector3()
-                    .addScaledVector(camDir, moveZ)
-                    .addScaledVector(right, moveX);
-                
-                playerData.mesh.position.x += movement.x * playerData.speed * deltaTime;
-                playerData.mesh.position.z += movement.z * playerData.speed * deltaTime;
-                playerData.mesh.rotation.y = Math.atan2(movement.x, movement.z);
-            }
-
-            const dist = Math.sqrt(playerData.mesh.position.x ** 2 + playerData.mesh.position.z ** 2);
-            if (dist > CONFIG.arenaRadius - 0.8) {
-                const n = new THREE.Vector3(-playerData.mesh.position.x, 0, -playerData.mesh.position.z).normalize();
-                playerData.mesh.position.x += n.x * 0.5;
-                playerData.mesh.position.z += n.z * 0.5;
+            const remaining = activePlayers.filter(p => p.alive);
+            if (remaining.length <= 1 && playerData.alive) {
+                wins++;
+                localStorage.setItem('stulomania_wins', wins);
+                document.getElementById('wins-counter').textContent = '🏆 ' + wins;
+                document.getElementById('phase-text').textContent = '🏆 ПОБЕДА!';
+                document.getElementById('timer').textContent = '🎉';
+                spawnParticles(playerData.mesh.position.clone(), 0xffd700, 50);
+                playWinSound();
+                setTimeout(resetGame, 3500);
             }
         }
 
-        function updateBots(deltaTime) {
-            bots.forEach(bot => {
-                if (!bot.alive || bot.seated) return;
-
-                bot.wanderTimer += deltaTime;
-                if (bot.wanderTimer > bot.changeTimer) {
-                    bot.targetAngle += (Math.random() - 0.5) * Math.PI;
-                    bot.changeTimer = 1 + Math.random() * 2.5;
-                    bot.wanderTimer = 0;
-                }
-
-                const mx = Math.sin(bot.targetAngle) * bot.speed * deltaTime;
-                const mz = Math.cos(bot.targetAngle) * bot.speed * deltaTime;
-                bot.mesh.position.x += mx;
-                bot.mesh.position.z += mz;
-                bot.mesh.rotation.y = bot.targetAngle;
-
-                // Убегание от стульев в хаосе
-                if (currentPhase === 'CHAOS' && currentChaosMode === 'chase') {
-                    const nc = findNearestChair(bot.mesh.position);
-                    if (nc && bot.mesh.position.distanceTo(nc.mesh.position) < 3.5) {
-                        const away = new THREE.Vector3().subVectors(bot.mesh.position, nc.mesh.position).normalize();
-                        bot.mesh.position.x += away.x * deltaTime * 7;
-                        bot.mesh.position.z += away.z * deltaTime * 7;
-                        bot.targetAngle = Math.atan2(away.x, away.z);
+        function resetGame() {
+            // Очистка
+            const toRemove = [];
+            scene.children.forEach(c => {
+                if (c.geometry && (c.geometry.type === 'CylinderGeometry' || c.geometry.type === 'SphereGeometry' || c.geometry.type === 'BoxGeometry')) {
+                    if (c.position.y < 10 && c !== scene.children.find(x => x === scene.children[0])) {
+                        // проще пересоздать сцену
                     }
-                }
-
-                // Бег к стульям в замирании
-                if (currentPhase === 'FREEZE' && !bot.seated) {
-                    const nc = findNearestChair(bot.mesh.position);
-                    if (nc) {
-                        const dir = new THREE.Vector3().subVectors(nc.mesh.position, bot.mesh.position).normalize();
-                        bot.mesh.position.x += dir.x * deltaTime * 9;
-                        bot.mesh.position.z += dir.z * deltaTime * 9;
-                        bot.targetAngle = Math.atan2(dir.x, dir.z);
-                        if (bot.mesh.position.distanceTo(nc.mesh.position) < 1.3) {
-                            sitOnChair(bot, nc);
-                        }
-                    }
-                }
-
-                const dist = Math.sqrt(bot.mesh.position.x ** 2 + bot.mesh.position.z ** 2);
-                if (dist > CONFIG.arenaRadius - 0.8) {
-                    const n = new THREE.Vector3(-bot.mesh.position.x, 0, -bot.mesh.position.z).normalize();
-                    bot.mesh.position.x += n.x * 0.5;
-                    bot.mesh.position.z += n.z * 0.5;
-                    bot.targetAngle = Math.atan2(n.x, n.z);
                 }
             });
-        }
-
-        function updateUI() {
-            const phase = CONFIG.phases[currentPhase];
-            document.getElementById('phase-text').textContent = 
-                currentPhase === 'COUNTDOWN' ? '🎪 СТУЛОМАНИЯ' : phase.name;
-            document.getElementById('phase-text').style.color = phase.color;
-            document.getElementById('timer').textContent = Math.ceil(phaseTimeLeft);
-            document.getElementById('players-left').textContent = 
-                `👥 ${activePlayers.filter(p => p.alive).length}`;
-            document.getElementById('chairs-left').textContent = 
-                `🪑 ${chairs.filter(c => !c.occupied).length}`;
-            document.getElementById('status').textContent = 
-                `Фаза: ${phase.name} | ${currentChaosMode || ''}`;
+            
+            // Пересоздаём всё
+            while(scene.children.length > 0) scene.remove(scene.children[0]);
+            particles = [];
+            
+            setupThreeJS();
+            createArena();
+            createPlayer();
+            bots = [];
+            activePlayers = [playerData];
+            for (let i = 0; i < CONFIG.totalBots; i++) createBot(i);
+            chairs = [];
+            for (let i = 0; i < CONFIG.chairsCount; i++) createChair(i);
+            
+            playerSeated = false;
+            currentPhase = 'COUNTDOWN';
+            phaseTimeLeft = CONFIG.phases.COUNTDOWN.duration;
+            document.getElementById('phase-text').textContent = '🎪 СТУЛОМАНИЯ';
+            document.getElementById('timer').textContent = '3';
+            updateUI();
         }
 
         // ============================================
@@ -944,63 +620,204 @@
         function setupJoystick() {
             const zone = document.getElementById('joystick-zone');
             const stick = document.getElementById('joystick-stick');
-            const zoneRect = zone.getBoundingClientRect();
-            const centerX = zoneRect.width / 2;
-            const centerY = zoneRect.height / 2;
-            const maxRadius = zoneRect.width / 2 - 30;
-
-            zone.addEventListener('touchstart', (e) => {
+            
+            zone.addEventListener('touchstart', function(e) {
                 e.preventDefault();
                 initAudio();
-                joystickActive = true;
                 joystickTouchId = e.changedTouches[0].identifier;
-            }, { passive: false });
+            });
 
-            zone.addEventListener('touchmove', (e) => {
+            zone.addEventListener('touchmove', function(e) {
                 e.preventDefault();
                 for (let i = 0; i < e.changedTouches.length; i++) {
                     if (e.changedTouches[i].identifier === joystickTouchId) {
-                        const touch = e.changedTouches[i];
                         const rect = zone.getBoundingClientRect();
-                        const dx = touch.clientX - rect.left - rect.width / 2;
-                        const dy = touch.clientY - rect.top - rect.height / 2;
-                        const dist = Math.sqrt(dx * dx + dy * dy);
-                        const clampDist = Math.min(dist, maxRadius);
+                        const dx = e.changedTouches[i].clientX - rect.left - rect.width / 2;
+                        const dy = e.changedTouches[i].clientY - rect.top - rect.height / 2;
+                        const dist = Math.min(Math.sqrt(dx*dx + dy*dy), 40);
                         const angle = Math.atan2(dy, dx);
                         
-                        stick.style.left = (rect.width / 2 + Math.cos(angle) * clampDist - 30) + 'px';
-                        stick.style.top = (rect.height / 2 + Math.sin(angle) * clampDist - 30) + 'px';
+                        stick.style.left = (rect.width/2 + Math.cos(angle)*dist - 30) + 'px';
+                        stick.style.top = (rect.height/2 + Math.sin(angle)*dist - 30) + 'px';
                         
-                        joystickVector.x = Math.cos(angle) * (clampDist / maxRadius);
-                        joystickVector.y = Math.sin(angle) * (clampDist / maxRadius);
+                        joystickVector.x = Math.cos(angle) * (dist/40);
+                        joystickVector.y = Math.sin(angle) * (dist/40);
                     }
                 }
-            }, { passive: false });
+            });
 
-            const resetJoystick = () => {
-                joystickActive = false;
+            function reset() {
+                joystickTouchId = null;
                 joystickVector.x = 0;
                 joystickVector.y = 0;
-                stick.style.left = (centerX - 30) + 'px';
-                stick.style.top = (centerY - 30) + 'px';
-                joystickTouchId = null;
-            };
+                stick.style.left = '40px';
+                stick.style.top = '40px';
+            }
+            zone.addEventListener('touchend', reset);
+            zone.addEventListener('touchcancel', reset);
 
-            zone.addEventListener('touchend', resetJoystick);
-            zone.addEventListener('touchcancel', resetJoystick);
-
-            // Кнопка СЕСТЬ
-            const sitBtn = document.getElementById('sit-button');
-            sitBtn.addEventListener('touchstart', (e) => {
+            document.getElementById('sit-button').addEventListener('touchstart', function(e) {
                 e.preventDefault();
                 initAudio();
                 if (currentPhase === 'FREEZE' && !playerSeated && playerData.alive) {
-                    const nc = findNearestChair(playerData.mesh.position);
-                    if (nc && playerData.mesh.position.distanceTo(nc.mesh.position) < 2.3) {
-                        sitOnChair(playerData, nc);
+                    let nearest = null, minDist = 99;
+                    chairs.forEach(c => {
+                        if (c.occupied || !c.mesh) return;
+                        const d = playerData.mesh.position.distanceTo(c.mesh.position);
+                        if (d < minDist) { minDist = d; nearest = c; }
+                    });
+                    if (nearest && minDist < 2.3) sitOnChair(playerData, nearest);
+                }
+            });
+        }
+
+        // ============================================
+        // ОБНОВЛЕНИЕ
+        // ============================================
+        function findNearestChair(pos) {
+            let nearest = null, minDist = 99;
+            chairs.forEach(c => {
+                if (c.occupied || !c.mesh) return;
+                const d = pos.distanceTo(c.mesh.position);
+                if (d < minDist) { minDist = d; nearest = c; }
+            });
+            return nearest;
+        }
+
+        function updatePlayer(dt) {
+            if (!playerData.alive || playerData.seated) return;
+            
+            const mx = joystickVector.x;
+            const mz = -joystickVector.y;
+            
+            if (Math.abs(mx) > 0.1 || Math.abs(mz) > 0.1) {
+                const camDir = new THREE.Vector3();
+                camera.getWorldDirection(camDir);
+                camDir.y = 0;
+                camDir.normalize();
+                const right = new THREE.Vector3().crossVectors(new THREE.Vector3(0,1,0), camDir).normalize();
+                
+                playerData.mesh.position.x += (camDir.x * mz + right.x * mx) * playerData.speed * dt;
+                playerData.mesh.position.z += (camDir.z * mz + right.z * mx) * playerData.speed * dt;
+                playerData.mesh.rotation.y = Math.atan2(camDir.x * mz + right.x * mx, camDir.z * mz + right.z * mx);
+            }
+
+            const dist = Math.sqrt(playerData.mesh.position.x**2 + playerData.mesh.position.z**2);
+            if (dist > CONFIG.arenaRadius - 0.7) {
+                const n = new THREE.Vector3(-playerData.mesh.position.x, 0, -playerData.mesh.position.z).normalize();
+                playerData.mesh.position.x += n.x * 0.5;
+                playerData.mesh.position.z += n.z * 0.5;
+            }
+        }
+
+        function updateBots(dt) {
+            bots.forEach(bot => {
+                if (!bot.alive || bot.seated) return;
+                
+                bot.wanderTimer += dt;
+                if (bot.wanderTimer > bot.changeTimer) {
+                    bot.targetAngle += (Math.random() - 0.5) * Math.PI;
+                    bot.changeTimer = 1 + Math.random() * 2;
+                    bot.wanderTimer = 0;
+                }
+                
+                bot.mesh.position.x += Math.sin(bot.targetAngle) * bot.speed * dt;
+                bot.mesh.position.z += Math.cos(bot.targetAngle) * bot.speed * dt;
+                bot.mesh.rotation.y = bot.targetAngle;
+
+                if (currentPhase === 'FREEZE' && !bot.seated) {
+                    const nc = findNearestChair(bot.mesh.position);
+                    if (nc) {
+                        const dx = nc.mesh.position.x - bot.mesh.position.x;
+                        const dz = nc.mesh.position.z - bot.mesh.position.z;
+                        const dist = Math.sqrt(dx*dx + dz*dz);
+                        if (dist > 0.1) {
+                            bot.mesh.position.x += (dx/dist) * 8 * dt;
+                            bot.mesh.position.z += (dz/dist) * 8 * dt;
+                            bot.targetAngle = Math.atan2(dx, dz);
+                        }
+                        if (dist < 1.3) sitOnChair(bot, nc);
                     }
                 }
-            }, { passive: false });
+
+                const dist = Math.sqrt(bot.mesh.position.x**2 + bot.mesh.position.z**2);
+                if (dist > CONFIG.arenaRadius - 0.7) {
+                    const n = new THREE.Vector3(-bot.mesh.position.x, 0, -bot.mesh.position.z).normalize();
+                    bot.mesh.position.x += n.x * 0.5;
+                    bot.mesh.position.z += n.z * 0.5;
+                    bot.targetAngle = Math.atan2(n.x, n.z);
+                }
+            });
+        }
+
+        function updateChaos(dt) {
+            chaosTimer += dt;
+            chairs.forEach((chair, i) => {
+                if (!chair.mesh || chair.frozen || chair.occupied) return;
+                
+                switch(currentChaosMode) {
+                    case 'dance':
+                        chair.mesh.position.y = chair.originalPosition.y + Math.sin(chaosTimer * 14 + i) * 1;
+                        chair.mesh.rotation.y += dt * 6;
+                        break;
+                    case 'chase':
+                        let nearest = null, minD = 99;
+                        activePlayers.forEach(p => {
+                            if (!p.alive || p.seated) return;
+                            const d = chair.mesh.position.distanceTo(p.mesh.position);
+                            if (d < minD) { minD = d; nearest = p; }
+                        });
+                        if (nearest) {
+                            const dx = nearest.mesh.position.x - chair.mesh.position.x;
+                            const dz = nearest.mesh.position.z - chair.mesh.position.z;
+                            chair.mesh.position.x += (dx / minD) * 5 * dt;
+                            chair.mesh.position.z += (dz / minD) * 5 * dt;
+                        }
+                        break;
+                    case 'gravity':
+                        const cd = Math.sqrt(chair.mesh.position.x**2 + chair.mesh.position.z**2);
+                        const f = (5 - cd) * 0.2;
+                        chair.mesh.position.x += (-chair.mesh.position.x / cd) * f * Math.sin(chaosTimer*3) * dt * 8;
+                        chair.mesh.position.z += (-chair.mesh.position.z / cd) * f * Math.sin(chaosTimer*3) * dt * 8;
+                        chair.mesh.rotation.y += dt * 3;
+                        break;
+                    case 'swap':
+                        if (Math.floor(chaosTimer * 0.6) % 2 === 0 && i % 2 === 0) {
+                            const next = chairs[(i+1) % chairs.length];
+                            if (next && next.mesh && !next.occupied) {
+                                const tmp = chair.mesh.position.clone();
+                                chair.mesh.position.copy(next.mesh.position);
+                                next.mesh.position.copy(tmp);
+                            }
+                        }
+                        break;
+                    case 'invisible':
+                        const vis = Math.sin(chaosTimer * 12 + i) > 0 ? 1 : 0.1;
+                        chair.mesh.children.forEach(ch => {
+                            if (ch.material && ch.material.opacity !== undefined) {
+                                ch.material.transparent = true;
+                                ch.material.opacity = vis;
+                            }
+                        });
+                        break;
+                }
+                
+                const d = Math.sqrt(chair.mesh.position.x**2 + chair.mesh.position.z**2);
+                if (d > CONFIG.arenaRadius - 1) {
+                    chair.mesh.position.x += (-chair.mesh.position.x / d) * 0.4;
+                    chair.mesh.position.z += (-chair.mesh.position.z / d) * 0.4;
+                }
+            });
+        }
+
+        function updateUI() {
+            const phase = CONFIG.phases[currentPhase];
+            document.getElementById('phase-text').textContent = currentPhase === 'COUNTDOWN' ? '🎪 СТУЛОМАНИЯ' : phase.name;
+            document.getElementById('phase-text').style.color = phase.color;
+            document.getElementById('timer').textContent = Math.ceil(phaseTimeLeft);
+            document.getElementById('players-left').textContent = '👥 ' + activePlayers.filter(p => p.alive).length;
+            document.getElementById('chairs-left').textContent = '🪑 ' + chairs.filter(c => !c.occupied).length;
+            document.getElementById('status').textContent = 'Фаза: ' + phase.name;
         }
 
         // ============================================
@@ -1010,24 +827,23 @@
 
         function gameLoop(time) {
             requestAnimationFrame(gameLoop);
-
-            const deltaTime = Math.min(0.1, (time - lastTime) / 1000);
+            
+            const dt = Math.min(0.1, (time - lastTime) / 1000);
             lastTime = time;
-
+            
             if (!gameActive) return;
-
-            phaseTimeLeft -= deltaTime;
+            
+            phaseTimeLeft -= dt;
             if (phaseTimeLeft <= 0) {
                 if (currentPhase === 'FREEZE') checkSeating();
                 nextPhase();
             }
-
-            updatePlayer(deltaTime);
-            updateBots(deltaTime);
-            if (currentPhase === 'CHAOS') updateChaos(deltaTime);
-            updateParticles(deltaTime);
-
-            // Камера
+            
+            updatePlayer(dt);
+            updateBots(dt);
+            if (currentPhase === 'CHAOS') updateChaos(dt);
+            updateParticles(dt);
+            
             if (playerData.alive && playerData.mesh) {
                 const tp = playerData.mesh.position.clone();
                 tp.y += 9;
@@ -1035,41 +851,19 @@
                 camera.position.lerp(tp, 0.08);
                 camera.lookAt(playerData.mesh.position.x, 1, playerData.mesh.position.z);
             }
-
-            // Анимация шаров
-            scene.children.forEach(child => {
-                if (child.name === 'glowBall') {
-                    child.rotation.y += deltaTime * 0.5;
-                }
-            });
-
+            
             updateUI();
+            renderer.render(scene, camera);
         }
 
-        // ============================================
-        // ЗАПУСК
-        // ============================================
-        function init() {
-            wins = parseInt(localStorage.getItem('stulomania_wins') || '0');
-            document.getElementById('wins-counter').textContent = '🏆 ' + wins;
+        // Обработка изменения размера окна
+        window.addEventListener('resize', function() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
 
-            initThreeJS();
-            createPlayer();
-            for (let i = 0; i < CONFIG.totalBots; i++) createBot(i);
-            for (let i = 0; i < CONFIG.chairsCount; i++) createChair(i);
-            
-            setupJoystick();
-            startGame();
-            
-            lastTime = performance.now();
-            requestAnimationFrame(gameLoop);
-
-            console.log('🪑 СтулоМания Мобайл запущена!');
-            console.log('🕹️ Джойстик слева — движение');
-            console.log('🪑 Кнопка справа — СЕСТЬ');
-        }
-
-        init();
+        console.log('🪑 СтулоМания загружена! Версия без importmap.');
     </script>
 </body>
-</html>
+    </html>
